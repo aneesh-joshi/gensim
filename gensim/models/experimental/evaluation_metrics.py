@@ -1,5 +1,6 @@
 import numpy as np
 import logging
+from sklearn.metrics import label_ranking_average_precision_score, average_precision_score
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -27,28 +28,35 @@ def mapk(Y_true, Y_pred):
     >>> print(mapk(Y_true, Y_pred))
     0.75
     """
-    aps = []
-    n_skipped = 0
-    for y_true, y_pred in zip(Y_true, Y_pred):
-        # skip datapoints where there is no solution
-        if np.sum(y_true) < 1:
-            n_skipped += 1
-            continue
+    s = 0
+    n = 0
+    for i, j in zip(Y_true, Y_pred):
+        i, j = np.reshape(np.array(i), (-1,1)), np.reshape(np.array(j), (-1,1))
+        s += average_precision_score(i, j)
+        n += 1
+    return s/n
+    # aps = []
+    # n_skipped = 0
+    # for y_true, y_pred in zip(Y_true, Y_pred):
+    #     # skip datapoints where there is no solution
+    #     if np.sum(y_true) < 1:
+    #         n_skipped += 1
+    #         continue
 
-        pred_sorted = sorted(zip(y_true, y_pred),
-                             key=lambda x: x[1], reverse=True)
-        avg = 0
-        n_relevant = 0
+    #     pred_sorted = sorted(zip(y_true, y_pred),
+    #                          key=lambda x: x[1], reverse=True)
+    #     avg = 0
+    #     n_relevant = 0
 
-        for i, val in enumerate(pred_sorted):
-            if val[0] == 1:
-                avg += 1. / (i + 1.)
-                n_relevant += 1
+    #     for i, val in enumerate(pred_sorted):
+    #         if val[0] == 1:
+    #             avg += 1. / (i + 1.)
+    #             n_relevant += 1
 
-        if n_relevant != 0:
-            ap = avg / n_relevant
-            aps.append(ap)
-    return np.mean(np.array(aps))
+    #     if n_relevant != 0:
+    #         ap = avg / n_relevant
+    #         aps.append(ap)
+    # return np.mean(np.array(aps))
 
 
 def mean_ndcg(Y_true, Y_pred, k=10):
