@@ -3,7 +3,7 @@ import os
 from pprint import pprint
 import csv
 import re
-from gensim.models.experimental import DRMM_TKS
+from drmm_tks import DRMM_TKS
 import gensim.downloader as api
 
 class MyWikiIterable:
