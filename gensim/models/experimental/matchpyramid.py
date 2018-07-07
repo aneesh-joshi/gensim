@@ -5,74 +5,14 @@
 # Copyright (C) 2018 RaRe Technologies s.r.o.
 # Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
 
-"""This module makes a trainable and usable model for getting similarity between documents using the DRMM_TKS model.
+"""This module makes a trainable and usable model for getting similarity between documents using the MatchPyramid model.
 
 Once the model is trained with the query-candidate-relevance data, the model can provide a vector for each new
 document which is entered into it. The similarity between any 2 documents can then be measured using the
 cosine similarty between the vectors.
 
-Abbreviations
-=============
-- DRMM : Deep Relevance Matching Model
-- TKS : Top K Solutions
-
-About DRMM_TKS
-==============
-This is a variant version of DRMM, which applied topk pooling in the matching matrix.
-It has the following steps:
-
-1. embed queries and docs into embedding vector named `q_embed` and `d_embed` respectively.
-2. computing `q_embed` and `d_embed` with element-wise multiplication.
-3. computing output of upper layer with dense layer operation.
-4. take softmax operation on the output of this layer named `g` and find the k largest entries named `mm_k`.
-5. input `mm_k` into hidden layers, with specified length of layers and activation function.
-6. compute `g` and `mm_k` with element-wise multiplication.
-
 On predicting, the model returns the score list between queries and documents.
 
-The trained model needs to be trained on data in the format:
-
->>> from gensim.models.experimental import DRMM_TKS
->>> import gensim.downloader as api
->>> queries = ["When was World War 1 fought ?".lower().split(), "When was Gandhi born ?".lower().split()]
->>> docs = [["The world war was bad".lower().split(), "It was fought in 1996".lower().split()], ["Gandhi was born in"
-...        "the 18th century".lower().split(), "He fought for the Indian freedom movement".lower().split(),
-...        "Gandhi was assasinated".lower().split()]]
->>> labels = [[0, 1], [1, 0, 0]]
->>> word_embeddings_kv = api.load('glove-wiki-gigaword-50')
->>> model = DRMM_TKS(queries, docs, labels, word_embedding=word_embeddings_kv, verbose=0)
-
-Persist a model to disk with :
-
->>> from gensim.test.utils import get_tmpfile
->>> file_path = get_tmpfile('DRMM_TKS.model')
->>> model.save(file_path)
->>> model = DRMM_TKS.load(file_path)
-
-You can also create the modela and train it later :
-
->>> model = DRMM_TKS()
->>> model.train(queries, docs, labels, word_embeddings_kv, epochs=12, verbose=0)
-
-Testing on new data :
-
->>> from gensim.test.utils import datapath
->>> model = DRMM_TKS.load(datapath('drmm_tks'))
->>>
->>> queries = ["how are glacier caves formed ?".lower().split()]
->>> docs = [["A partly submerged glacier cave on Perito Moreno Glacier".lower().split(), "glacier cave is cave formed"
-...        " within the ice of glacier".lower().split()]]
->>> print(model.predict(queries, docs))
-[[0.9915068 ]
- [0.99228466]]
->>> print(model.predict([["hello", "world"]], [[["i", "am", "happy"], ["good", "morning"]]]))
-[[0.9975487]
- [0.999115 ]]
-
-
-More information can be found in:
-`Jiafeng Guo, Yixing Fan, Qingyao Ai, W. Bruce Croft "A Deep Relevance Matching Model for Ad-hoc Retrieval"
-<http://www.bigdatalab.ac.cn/~gjf/papers/2016/CIKM2016a_guo.pdf>`_
 `MatchZoo Repository <https://github.com/faneshion/MatchZoo>`_
 `Similarity Learning Wikipedia Page <https://en.wikipedia.org/wiki/Similarity_learning>`_
 
@@ -85,7 +25,7 @@ from numpy import random as np_random
 from gensim.models import KeyedVectors
 from collections import Counter
 from gensim.models.experimental.custom_losses import rank_hinge_loss
-from gensim.models.experimental.custom_layers import TopKLayer
+from gensim.models.experimental.custom_layers import DynamicMaxPooling
 from gensim.models.experimental.custom_callbacks import ValidationCallback
 from gensim.models.experimental.evaluation_metrics import mapk, mean_ndcg
 from sklearn.preprocessing import normalize
@@ -94,13 +34,11 @@ from collections import Iterable
 
 try:
     import keras.backend as K
-    import keras
     from keras import optimizers
     from keras.models import load_model
     from keras.losses import hinge
     from keras.models import Model
-    from keras.layers import Input, Embedding, Dot, Dense, Reshape, Dropout, Permute, Lambda, Activation
-    from keras.activations import softmax
+    from keras.layers import Input, Embedding, Dot, Dense, Reshape, Dropout, Conv2D, Flatten
     KERAS_AVAILABLE = True
 except ImportError:
     KERAS_AVAILABLE = False
@@ -108,7 +46,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def _get_full_batch_iter(pair_list, batch_size, hist_size, calc_hist):
+def _get_full_batch_iter(pair_list, batch_size, text_maxlen):
     """Provides all the data points int the format: X1, X2, y with
     alternate positive and negative examples of `batch_size` in a streamable format.
 
@@ -119,6 +57,8 @@ def _get_full_batch_iter(pair_list, batch_size, hist_size, calc_hist):
     batch_size : int
         half the size in which the generator will yield datapoints. The size is doubled since
         we include positive and negative examples.
+    text_maxlen : int
+        the maimum length that a document/query can take
 
     Yields
     -------
@@ -132,23 +72,29 @@ def _get_full_batch_iter(pair_list, batch_size, hist_size, calc_hist):
         0 : X2[i] is not relevant to X1[i]
     """
 
-    X1, X2, y = [], [], []
+    X1, X2, X1_len, X2_len, y = [], [], [], [], []
     while True:
         for i, (query, pos_doc, neg_doc) in enumerate(pair_list):
-            X1.append(query)
-            X2.append(calc_hist(query, pos_doc))
-            y.append(1)
-            X1.append(query)
-            X2.append(calc_hist(query, neg_doc))
-            y.append(0)
-            if i % batch_size == 0 and i != 0:
-                # print(np.array(X1))
-                # print(np.array(X1).shape)
-                # print(np.array(X2))
-                # print(np.array(X2).shape)
-                yield ({'query': np.array(X1), 'doc': np.array(X2)}, np.array(y))
-                X1, X2, y = [], [], []
+            query, query_len = query
+            pos_doc, pos_doc_len = pos_doc
+            neg_doc, neg_doc_len = neg_doc
 
+            X1.append(query)
+            X1_len.append(query_len)
+            X2.append(pos_doc)
+            X2_len.append(pos_doc_len)
+            y.append(1)
+
+            X1.append(query)
+            X1_len.append(query_len)
+            X2.append(neg_doc)
+            X2_len.append(neg_doc_len)
+            y.append(0)
+
+            if i % batch_size == 0 and i != 0:
+                yield ({'query': np.array(X1), 'doc': np.array(X2),
+                    'dpool_index': DynamicMaxPooling.dynamic_pooling_index(X1_len, X2_len, text_maxlen, text_maxlen)}, np.array(y))
+                X1, X2, X1_len, X2_len, y = [], [], [], [], []
 
 def _get_pair_list(queries, docs, labels, _make_indexed, is_iterable):
     """Yields a tuple with query document pairs in the format
@@ -189,13 +135,15 @@ def _get_pair_list(queries, docs, labels, _make_indexed, is_iterable):
     """
     if is_iterable:
         while True:
+            j=0
             for q, doc, label in zip(queries, docs, labels):
                 doc, label = (list(t) for t in zip(*sorted(zip(doc, label), reverse=True)))
                 for item in zip(doc, label):
                     if item[1] == 1:
                         for new_item in zip(doc, label):
                             if new_item[1] == 0:
-                                yield(_make_indexed(q), _make_indexed(item[0]), _make_indexed(new_item[0]))
+                                j+=1
+                                yield((_make_indexed(q), len(q)), (_make_indexed(item[0]), len(item[0])), (_make_indexed(new_item[0]), len(new_item[0])))
     else:
         for q, doc, label in zip(queries, docs, labels):
             doc, label = (list(t) for t in zip(*sorted(zip(doc, label), reverse=True)))
@@ -205,14 +153,15 @@ def _get_pair_list(queries, docs, labels, _make_indexed, is_iterable):
                         if new_item[1] == 0:
                             yield(_make_indexed(q), _make_indexed(item[0]), _make_indexed(new_item[0]))
 
-class DRMM(utils.SaveLoad):
+
+class MatchPyramid(utils.SaveLoad):
     """Model for training a Similarity Learning Model using the DRMM TKS model.
     You only have to provide sentences in the data as a list of words.
     """
 
-    def __init__(self, queries=None, docs=None, labels=None, word_embedding=None, batch_size=100,
+    def __init__(self, queries=None, docs=None, labels=None, word_embedding=None,
                  text_maxlen=200, normalize_embeddings=True, epochs=10, unk_handle_method='random',
-                 validation_data=None, target_mode='ranking', verbose=1, hist_size=60):
+                 validation_data=None, topk=50, target_mode='ranking', verbose=1):
         """Initializes the model and trains it
 
         Parameters
@@ -251,8 +200,6 @@ class DRMM(utils.SaveLoad):
                 - 0 : silent
                 - 1 : progress bar
                 - 2 : one line per epoch
-        batch_size : int
-            half the size of the batch. Half since the there are positive and negative examples 
 
 
         Examples
@@ -273,6 +220,7 @@ class DRMM(utils.SaveLoad):
         self.labels = labels
         self.word_counter = Counter()
         self.text_maxlen = text_maxlen
+        self.topk = topk
         self.word_embedding = word_embedding
         self.word2index, self.index2word = {}, {}
         self.normalize_embeddings = normalize_embeddings
@@ -283,8 +231,6 @@ class DRMM(utils.SaveLoad):
         self.verbose = verbose
         self.first_train = True  # Whether the model has been trained before
         self.needs_vocab_build = True
-        self.hist_size = hist_size
-        self.batch_size = batch_size
 
         # These functions have been defined outside the class and set as attributes here
         # so that they can be ignored when saving the model to file
@@ -302,10 +248,9 @@ class DRMM(utils.SaveLoad):
 
         if self.queries is not None and self.docs is not None and self.labels is not None:
             self.build_vocab(self.queries, self.docs, self.labels, self.word_embedding)
-            print(self.batch_size)
-            self.train(self.queries, self.docs, self.labels, self.batch_size, self.word_embedding,
-                       self.text_maxlen, self.normalize_embeddings, self.epochs,
-                       self.validation_data)
+            self.train(self.queries, self.docs, self.labels, self.word_embedding,
+                       self.text_maxlen, self.normalize_embeddings, self.epochs, self.unk_handle_method,
+                       self.validation_data, self.topk, self.target_mode, self.verbose)
 
     def build_vocab(self, queries, docs, labels, word_embedding):
         """Indexes all the words and makes an embedding_matrix which
@@ -449,13 +394,14 @@ class DRMM(utils.SaveLoad):
         for word in sentence:
             indexed_sent.append(self.word2index[word])
 
+
         if len(indexed_sent) > self.text_maxlen:
-            raise ValueError(
-                "text_maxlen: %d isn't big enough. Error at sentence of length %d."
-                "Sentence is %s" % (self.text_maxlen, len(sentence), sentence)
-            )
-        indexed_sent = indexed_sent + \
-            [self.pad_word_index] * (self.text_maxlen - len(indexed_sent))
+            indexed_sent = indexed_sent[:self.text_maxlen]
+            #raise ValueError(
+             #   "text_maxlen: %d isn't big enough. Error at sentence of length %d."
+              #  "Sentence is %s" % (self.text_maxlen, len(sentence), sentence)
+            #)
+        indexed_sent = indexed_sent + [self.pad_word_index] * (self.text_maxlen - len(indexed_sent))
         return indexed_sent
 
     def _get_full_batch(self):
@@ -481,29 +427,13 @@ class DRMM(utils.SaveLoad):
             X1.append(query)
             X2.append(neg_doc)
             y.append(0)
+
+        print('There are pairs in pair_list', np.array(X1).shape, np.array(X2).shape, np.array(y).shape)
         return np.array(X1), np.array(X2), np.array(y)
 
-    def calc_hist(self, t1, t2):
-        """Calculates the histogram using the interaction between the """
-        mhist = np.zeros((self.text_maxlen, self.hist_size), dtype=np.float32)
-
-        t1_rep = self.embedding_matrix[t1]
-        t2_rep = self.embedding_matrix[t2]
-
-        mm = t1_rep.dot(np.transpose(t2_rep))
-
-        for (i,j), v in np.ndenumerate(mm):
-            if i >= self.text_maxlen:
-                break
-            vid = int((v + 1.) / 2. * ( self.hist_size - 1.))
-            mhist[i][vid] += 1.
-        mhist += 1.
-        mhist = np.log10(mhist)
-        return mhist
-
-    def train(self, queries, docs, labels, batch_size, word_embedding=None,
-              text_maxlen=200, normalize_embeddings=True, epochs=10, unk_handle_method='zero', hist_size=60,
-              validation_data=None, target_mode='ranking', verbose=1, steps_per_epoch=281):
+    def train(self, queries, docs, labels, word_embedding=None,
+              text_maxlen=40, normalize_embeddings=True, epochs=10, unk_handle_method='zero',
+              validation_data=None, topk=20, target_mode='ranking', verbose=1, batch_size=100, steps_per_epoch=900):
         """Trains a DRMM_TKS model using specified parameters
 
         This method is called from on model initialization if the data is provided.
@@ -521,9 +451,8 @@ class DRMM(utils.SaveLoad):
         self.epochs = epochs or self.epochs
         self.unk_handle_method = unk_handle_method or self.unk_handle_method
         self.validation_data = validation_data or self.validation_data
+        self.topk = topk or self.topk
         self.target_mode = target_mode or self.target_mode
-        self.batch_size = batch_size or self.batch_size
-        self.hist_size = hist_size or self.hist_size
 
         if verbose != 0:  # Check needed since 0 or 2 will always give 2
             self.verbose = verbose or self.verbose
@@ -543,20 +472,22 @@ class DRMM(utils.SaveLoad):
 
         self.pair_list = self._get_pair_list(self.queries, self.docs, self.labels, self._make_indexed, is_iterable)
         if is_iterable:
-            train_generator = self._get_full_batch_iter(self.pair_list, self.batch_size, self.hist_size, self.calc_hist)
+            train_generator = self._get_full_batch_iter(self.pair_list, batch_size, self.text_maxlen)
         else:
             X1_train, X2_train, y_train = self._get_full_batch()
 
         if self.first_train:
-            # The settings below should be set only once since setting them twice will lead
-            # to loss of the trained model and the optimizer state
+            # The settings below should be set only once
             self.model = self._get_keras_model()
             optimizer = 'adam'
+            optimizer = 'adadelta'
             optimizer = optimizers.get(optimizer)
-            K.set_value(optimizer.lr, 0.0001)
+            learning_rate = 0.0001
+            learning_rate = 1
+            K.set_value(optimizer.lr, learning_rate)
             # either one can be selected. Currently, the choice is manual.
-            loss = 'mse'
             loss = hinge
+            loss = 'mse'
             loss = rank_hinge_loss
             self.model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'])
         else:
@@ -566,7 +497,6 @@ class DRMM(utils.SaveLoad):
 
         # Put the validation data in as a callback
         val_callback = None
-        print("BBBBBBBBBBBBBBBBB", self.validation_data)
         if self.validation_data is not None:
             test_queries, test_docs, test_labels = self.validation_data
 
@@ -599,10 +529,10 @@ class DRMM(utils.SaveLoad):
 
         if is_iterable:
             self.model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, callbacks=val_callback,
-                                    epochs=self.epochs)
+                                    epochs=self.epochs, shuffle=False)
         else:
             self.model.fit(x={"query": X1_train, "doc": X2_train}, y=y_train, batch_size=5,
-                           verbose=self.verbose, epochs=self.epochs, shuffle=True, callbacks=val_callback)
+                           verbose=self.verbose, epochs=self.epochs, shuffle=False, callbacks=val_callback)
 
     def _translate_user_data(self, data):
         """Translates given user data into an indexed format which the model understands.
@@ -636,10 +566,11 @@ class DRMM(utils.SaveLoad):
                     translated_sentence.append(self.unk_word_index)
                     n_skipped_words += 1
             if len(sentence) > self.text_maxlen:
-                logger.info(
-                    "text_maxlen: %d isn't big enough. Error at sentence of length %d."
-                    "Sentence is %s", self.text_maxlen, len(sentence), str(sentence)
-                )
+                sentence = sentence[:self.text_maxlen]
+                #logger.info(
+                 #   "text_maxlen: %d isn't big enough. Error at sentence of length %d."
+                  #  "Sentence is %s", self.text_maxlen, len(sentence), str(sentence)
+                #)
             translated_sentence = translated_sentence + \
                 (self.text_maxlen - len(sentence)) * [self.pad_word_index]
             translated_data.append(np.array(translated_sentence))
@@ -789,14 +720,16 @@ class DRMM(utils.SaveLoad):
         """
         fname = args[0]
         gensim_model = super(DRMM_TKS, cls).load(*args, **kwargs)
-        keras_model = load_model(fname + '.keras', custom_objects={'TopKLayer': TopKLayer})
+        keras_model = load_model(
+            fname + '.keras', custom_objects={'TopKLayer': TopKLayer})
         gensim_model.model = keras_model
         gensim_model._get_pair_list = _get_pair_list
         gensim_model._get_full_batch_iter = _get_full_batch_iter
         return gensim_model
 
-    def _get_keras_model(self, embed_trainable=False, dropout_rate=0.5, hidden_sizes=[20, 1]):
-        """Builds and returns the keras class for drmm tks model
+    def _get_keras_model(self, embed_trainable=False, kernel_count=64, kernel_size=[3, 3], dpool_size=[3, 10],
+            dropout_rate=0.95):
+        """Builds and returns the keras class for matchpyramid model
 
         Parameters
         ----------
@@ -813,44 +746,35 @@ class DRMM(utils.SaveLoad):
             will add 3 fully connected layers of 10, 20 and 30 hidden neurons
 
         """
+
         if not KERAS_AVAILABLE:
             raise ImportError("Please install Keras to use this model")
 
-        n_layers = len(hidden_sizes)
-
-        
-        self.initializer_fc = keras.initializers.RandomUniform(minval=-0.1, maxval=0.1, seed=11)
-        self.initializer_gate = keras.initializers.RandomUniform(minval=-0.01, maxval=0.01, seed=11)
-        self.dropout_rate = dropout_rate
-
-        # def tensor_product(x):
-        #     a = x[0]
-        #     b = x[1]
-        #     y = K.batch_dot(a, b, axis=1)
-        #     y = K.einsum('ijk, ikl->ijl', a, b)
-        #     return y
-
         query = Input(name='query', shape=(self.text_maxlen,))
-        doc = Input(name='doc', shape=(self.text_maxlen, self.hist_size))
+        doc = Input(name='doc', shape=(self.text_maxlen,))
 
-        embedding = Embedding(self.embedding_matrix.shape[0], self.embedding_matrix.shape[1], weights=[self.embedding_matrix], trainable = False)
+        dpool_index = Input(name='dpool_index', shape=[self.text_maxlen, self.text_maxlen, 3], dtype='int32')
 
+        embedding = Embedding(self.embedding_matrix.shape[0], self.embedding_matrix.shape[1], weights=[self.embedding_matrix],
+            trainable = embed_trainable)
         q_embed = embedding(query)
-        q_w = Dense(1, kernel_initializer=self.initializer_gate, use_bias=False)(q_embed)
-        q_w = Lambda(lambda x: softmax(x, axis=1), output_shape=(self.text_maxlen, ))(q_w)
-        z = doc
-        z = Dropout(rate=self.dropout_rate)(z)
-        for i in range(n_layers-1):
-            z = Dense(hidden_sizes[i], kernel_initializer=self.initializer_fc)(z)
-            z = Activation('tanh')(z)
-        z = Dense(hidden_sizes[n_layers-1], kernel_initializer=self.initializer_fc)(z)
-        z = Permute((2, 1))(z)
-        z = Reshape((self.text_maxlen,))(z)
-        q_w = Reshape((self.text_maxlen,))(q_w)
+        d_embed = embedding(doc)
 
-        out_ = Dot( axes= [1, 1])([z, q_w])
+        cross = Dot(axes=[2, 2], normalize=False)([q_embed, d_embed])
+        cross_reshape = Reshape((self.text_maxlen, self.text_maxlen, 1))(cross)
+
+        conv2d = Conv2D(kernel_count, kernel_size, padding='same', activation='relu')
+        dpool = DynamicMaxPooling(dpool_size[0], dpool_size[1])
+
+        conv1 = conv2d(cross_reshape)
+        pool1 = dpool([conv1, dpool_index])
+        pool1_flat = Flatten()(pool1)
+        pool1_flat_drop = Dropout(rate=dropout_rate)(pool1_flat)
+
         if self.target_mode == 'classification':
-            out_ = Dense(2, activation='softmax')(out_)
+            out_ = Dense(2, activation='softmax')(pool1_flat_drop)
+        elif self.target_mode in ['regression', 'ranking']:
+            out_ = Dense(1)(pool1_flat_drop)
 
-        model = Model(inputs=[query, doc], outputs=[out_])
+        model = Model(inputs=[query, doc, dpool_index], outputs=out_)
         return model
