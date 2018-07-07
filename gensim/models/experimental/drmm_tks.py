@@ -185,16 +185,13 @@ def _get_pair_list(queries, docs, labels, _make_indexed, is_iterable):
     """
     if is_iterable:
         while True:
-            j=0
             for q, doc, label in zip(queries, docs, labels):
                 doc, label = (list(t) for t in zip(*sorted(zip(doc, label), reverse=True)))
                 for item in zip(doc, label):
                     if item[1] == 1:
                         for new_item in zip(doc, label):
                             if new_item[1] == 0:
-                                j+=1
                                 yield(_make_indexed(q), _make_indexed(item[0]), _make_indexed(new_item[0]))
-            print("SAMPLA RE!!!!!!!!!!!!!!!!!!", j)
     else:
         for q, doc, label in zip(queries, docs, labels):
             doc, label = (list(t) for t in zip(*sorted(zip(doc, label), reverse=True)))
@@ -211,7 +208,7 @@ class DRMM_TKS(utils.SaveLoad):
     """
 
     def __init__(self, queries=None, docs=None, labels=None, word_embedding=None,
-                 text_maxlen=200, normalize_embeddings=True, epochs=10, unk_handle_method='random',
+                 text_maxlen=200, normalize_embeddings=True, epochs=10, unk_handle_method='zero',
                  validation_data=None, topk=50, target_mode='ranking', verbose=1):
         """Initializes the model and trains it
 
@@ -775,7 +772,7 @@ class DRMM_TKS(utils.SaveLoad):
         gensim_model._get_full_batch_iter = _get_full_batch_iter
         return gensim_model
 
-    def _get_keras_model(self, embed_trainable=False, dropout_rate=0.5, hidden_sizes=[100, 1]):
+    def _get_keras_model(self, embed_trainable=False, dropout_rate=0.5, hidden_sizes=[100, 50, 1]):
         """Builds and returns the keras class for drmm tks model
 
         About DRMM_TKS
@@ -830,8 +827,8 @@ class DRMM_TKS(utils.SaveLoad):
             self.text_maxlen, self.embedding_dim))(mm)
 
         for i in range(n_layers):
-            mm_k = Dense(hidden_sizes[i], activation='softplus', kernel_initializer='he_uniform',
-                         bias_initializer='zeros')(mm_k)
+            # mm_k = Dense(hidden_sizes[i], activation='softplus' , kernel_initializer='he_uniform', bias_initializer='zeros')(mm_k)
+            mm_k = Dense(hidden_sizes[i])(mm_k)
 
         mm_k_dropout = Dropout(rate=dropout_rate)(mm_k)
 
