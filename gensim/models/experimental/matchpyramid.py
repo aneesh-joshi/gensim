@@ -644,6 +644,8 @@ class MatchPyramid(utils.SaveLoad):
         labels : list of list of int
             The relevance of the document to the query. 1 = relevant, 0 = not relevant
         """
+        long_query_len = []
+        long_doc_len = []
         long_doc_list = []
         long_label_list = []
         long_query_list = []
@@ -652,13 +654,16 @@ class MatchPyramid(utils.SaveLoad):
             i = 0
             for d, l in zip(doc, label):
                 long_query_list.append(query)
+                long_query_len.append(len(query))
                 long_doc_list.append(d)
+                long_doc_list.append(len(d))
                 long_label_list.append(l)
                 i += 1
             doc_lens.append(len(doc))
         indexed_long_query_list = self._translate_user_data(long_query_list)
         indexed_long_doc_list = self._translate_user_data(long_doc_list)
-        predictions = self.model.predict(x={'query': indexed_long_query_list, 'doc': indexed_long_doc_list})
+        predictions = self.model.predict(x={'query': indexed_long_query_list, 'doc': indexed_long_doc_list,
+            'dpool_index': DynamicMaxPooling.dynamic_pooling_index(long_query_len, long_doc_len, self.text_maxlen, self.text_maxlen)})
         Y_pred = []
         Y_true = []
         offset = 0
