@@ -656,7 +656,7 @@ class MatchPyramid(utils.SaveLoad):
                 long_query_list.append(query)
                 long_query_len.append(len(query))
                 long_doc_list.append(d)
-                long_doc_list.append(len(d))
+                long_doc_len.append(len(d))
                 long_label_list.append(l)
                 i += 1
             doc_lens.append(len(doc))
