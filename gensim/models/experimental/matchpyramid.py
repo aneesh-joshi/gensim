@@ -25,7 +25,7 @@ from numpy import random as np_random
 from gensim.models import KeyedVectors
 from collections import Counter
 from custom_losses import rank_hinge_loss
-from custom_layers import TopKLayer
+from custom_layers import TopKLayer, DynamicMaxPooling
 from custom_callbacks import ValidationCallback
 from evaluation_metrics import mapk, mean_ndcg
 from sklearn.preprocessing import normalize
