@@ -566,11 +566,10 @@ class MatchPyramid(utils.SaveLoad):
                     translated_sentence.append(self.unk_word_index)
                     n_skipped_words += 1
             if len(sentence) > self.text_maxlen:
-                sentence = sentence[:self.text_maxlen]
-                #logger.info(
-                 #   "text_maxlen: %d isn't big enough. Error at sentence of length %d."
-                  #  "Sentence is %s", self.text_maxlen, len(sentence), str(sentence)
-                #)
+                logger.info(
+                   "text_maxlen: %d isn't big enough. Error at sentence of length %d."
+                   "Sentence is %s", self.text_maxlen, len(sentence), str(sentence)
+                )
             translated_sentence = translated_sentence + \
                 (self.text_maxlen - len(sentence)) * [self.pad_word_index]
             translated_data.append(np.array(translated_sentence))

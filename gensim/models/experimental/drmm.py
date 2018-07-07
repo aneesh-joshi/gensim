@@ -11,65 +11,6 @@ Once the model is trained with the query-candidate-relevance data, the model can
 document which is entered into it. The similarity between any 2 documents can then be measured using the
 cosine similarty between the vectors.
 
-Abbreviations
-=============
-- DRMM : Deep Relevance Matching Model
-- TKS : Top K Solutions
-
-About DRMM_TKS
-==============
-This is a variant version of DRMM, which applied topk pooling in the matching matrix.
-It has the following steps:
-
-1. embed queries and docs into embedding vector named `q_embed` and `d_embed` respectively.
-2. computing `q_embed` and `d_embed` with element-wise multiplication.
-3. computing output of upper layer with dense layer operation.
-4. take softmax operation on the output of this layer named `g` and find the k largest entries named `mm_k`.
-5. input `mm_k` into hidden layers, with specified length of layers and activation function.
-6. compute `g` and `mm_k` with element-wise multiplication.
-
-On predicting, the model returns the score list between queries and documents.
-
-The trained model needs to be trained on data in the format:
-
->>> from gensim.models.experimental import DRMM_TKS
->>> import gensim.downloader as api
->>> queries = ["When was World War 1 fought ?".lower().split(), "When was Gandhi born ?".lower().split()]
->>> docs = [["The world war was bad".lower().split(), "It was fought in 1996".lower().split()], ["Gandhi was born in"
-...        "the 18th century".lower().split(), "He fought for the Indian freedom movement".lower().split(),
-...        "Gandhi was assasinated".lower().split()]]
->>> labels = [[0, 1], [1, 0, 0]]
->>> word_embeddings_kv = api.load('glove-wiki-gigaword-50')
->>> model = DRMM_TKS(queries, docs, labels, word_embedding=word_embeddings_kv, verbose=0)
-
-Persist a model to disk with :
-
->>> from gensim.test.utils import get_tmpfile
->>> file_path = get_tmpfile('DRMM_TKS.model')
->>> model.save(file_path)
->>> model = DRMM_TKS.load(file_path)
-
-You can also create the modela and train it later :
-
->>> model = DRMM_TKS()
->>> model.train(queries, docs, labels, word_embeddings_kv, epochs=12, verbose=0)
-
-Testing on new data :
-
->>> from gensim.test.utils import datapath
->>> model = DRMM_TKS.load(datapath('drmm_tks'))
->>>
->>> queries = ["how are glacier caves formed ?".lower().split()]
->>> docs = [["A partly submerged glacier cave on Perito Moreno Glacier".lower().split(), "glacier cave is cave formed"
-...        " within the ice of glacier".lower().split()]]
->>> print(model.predict(queries, docs))
-[[0.9915068 ]
- [0.99228466]]
->>> print(model.predict([["hello", "world"]], [[["i", "am", "happy"], ["good", "morning"]]]))
-[[0.9975487]
- [0.999115 ]]
-
-
 More information can be found in:
 `Jiafeng Guo, Yixing Fan, Qingyao Ai, W. Bruce Croft "A Deep Relevance Matching Model for Ad-hoc Retrieval"
 <http://www.bigdatalab.ac.cn/~gjf/papers/2016/CIKM2016a_guo.pdf>`_
@@ -142,10 +83,6 @@ def _get_full_batch_iter(pair_list, batch_size, hist_size, calc_hist):
             X2.append(calc_hist(query, neg_doc))
             y.append(0)
             if i % batch_size == 0 and i != 0:
-                # print(np.array(X1))
-                # print(np.array(X1).shape)
-                # print(np.array(X2))
-                # print(np.array(X2).shape)
                 yield ({'query': np.array(X1), 'doc': np.array(X2)}, np.array(y))
                 X1, X2, y = [], [], []
 
