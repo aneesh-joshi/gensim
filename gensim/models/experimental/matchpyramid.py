@@ -608,18 +608,22 @@ class MatchPyramid(utils.SaveLoad):
          [0.99258184]
          [0.9960481 ]]
         """
-
+        long_query_len = []
+        long_doc_len = []
         long_query_list = []
         long_doc_list = []
         for query, doc in zip(queries, docs):
             for d in doc:
                 long_query_list.append(query)
+                long_query_len.append(len(query))
                 long_doc_list.append(d)
+                long_doc_len.append(len(d))
 
         indexed_long_query_list = self._translate_user_data(long_query_list)
         indexed_long_doc_list = self._translate_user_data(long_doc_list)
 
-        predictions = self.model.predict(x={'query': indexed_long_query_list, 'doc': indexed_long_doc_list})
+        predictions = self.model.predict(x={'query': indexed_long_query_list, 'doc': indexed_long_doc_list,
+            'dpool_index': DynamicMaxPooling.dynamic_pooling_index(long_query_len, long_doc_len, self.text_maxlen, self.text_maxlen)})
 
         logger.info("Predictions in the format query, doc, similarity")
         for i, (q, d) in enumerate(zip(long_query_list, long_doc_list)):
