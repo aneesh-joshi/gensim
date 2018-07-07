@@ -3,7 +3,7 @@ import os
 from pprint import pprint
 import csv
 import re
-from gensim.models.experimental import MatchPyramid
+from matchpyramid import MatchPyramid
 import gensim.downloader as api
 
 class MyWikiIterable:
