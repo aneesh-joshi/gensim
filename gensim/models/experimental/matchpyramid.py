@@ -579,9 +579,14 @@ class MatchPyramid(utils.SaveLoad):
         logger.info(
             "Found %d unknown words. Set them to unknown word index : %d", n_skipped_words, self.unk_word_index
         )
-        print(np.array(translated_data))
-        print(np.array(translated_data).shape)
-        return np.array(translated_data)
+
+        translated_data = np.array(translated_data)
+
+        print(translated_data)
+        print(translated_data.shape)
+        translated_data = translated_data.reshape((translated_data.shape[0], self.text_maxlen))
+
+        return 
 
     def predict(self, queries, docs):
         """Predcits the similarity between a query-document pair
@@ -667,6 +672,7 @@ class MatchPyramid(utils.SaveLoad):
 
         indexed_long_query_list = self._translate_user_data(long_query_list)
         indexed_long_doc_list = self._translate_user_data(long_doc_list)
+
         predictions = self.model.predict(x={'query': indexed_long_query_list, 'doc': indexed_long_doc_list,
             'dpool_index': DynamicMaxPooling.dynamic_pooling_index(long_query_len, long_doc_len, self.text_maxlen, self.text_maxlen)})
         Y_pred = []
