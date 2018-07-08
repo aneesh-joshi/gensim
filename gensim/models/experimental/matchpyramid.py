@@ -574,6 +574,8 @@ class MatchPyramid(utils.SaveLoad):
               #  "Sentence is %s" % (self.text_maxlen, len(sentence), sentence)
             #)
             translated_sentence = translated_sentence + (self.text_maxlen - len(sentence)) * [self.pad_word_index]
+            print(np.array(translated_sentence))
+            print(np.array(translated_sentence).shape)
             translated_data.append(np.array(translated_sentence))
 
         logger.info(
@@ -581,7 +583,6 @@ class MatchPyramid(utils.SaveLoad):
         )
 
         translated_data = np.array(translated_data)
-
         print(translated_data)
         print(translated_data.shape)
         translated_data = translated_data.reshape((translated_data.shape[0], self.text_maxlen))
