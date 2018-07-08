@@ -567,16 +567,16 @@ class MatchPyramid(utils.SaveLoad):
                     translated_sentence.append(self.unk_word_index)
                     n_skipped_words += 1
 
-            if len(sentence) > self.text_maxlen:
-                sentence = sentence[:self.text_maxlen]
+            if len(tranlsated_sentence) > self.text_maxlen:
+                translated_sentence = translated_sentence[:self.text_maxlen]
             #raise ValueError(
              #   "text_maxlen: %d isn't big enough. Error at sentence of length %d."
               #  "Sentence is %s" % (self.text_maxlen, len(sentence), sentence)
             #)
             translated_sentence = translated_sentence + (self.text_maxlen - len(sentence)) * [self.pad_word_index]
-            if str(np.array(translated_sentence).shape) != '(70,)':
-                print(np.array(translated_sentence))
-                print(np.array(translated_sentence).shape)
+            # if str(np.array(translated_sentence).shape) != '(70,)':
+            #     print(np.array(translated_sentence))
+            #     print(np.array(translated_sentence).shape)
             translated_data.append(np.array(translated_sentence))
 
         logger.info(
@@ -586,9 +586,9 @@ class MatchPyramid(utils.SaveLoad):
         translated_data = np.array(translated_data)
         print(translated_data)
         print(translated_data.shape)
-        translated_data = translated_data.reshape((translated_data.shape[0], self.text_maxlen))
+        # translated_data = translated_data.reshape((translated_data.shape[0], self.text_maxlen))
 
-        return 
+        return translated_data
 
     def predict(self, queries, docs):
         """Predcits the similarity between a query-document pair
