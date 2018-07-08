@@ -92,7 +92,7 @@ d_test_iterable = MyWikiIterable('doc', os.path.join('experimental_data', 'WikiQ
 l_test_iterable = MyWikiIterable('label', os.path.join('experimental_data', 'WikiQACorpus', 'WikiQA-test.tsv'))
 
 
-kv_model = api.load('glove-wiki-gigaword-50')
+kv_model = api.load('glove-wiki-gigaword-300')
 
 # Train the model
 mp_model = MatchPyramid(
