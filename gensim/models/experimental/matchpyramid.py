@@ -433,7 +433,7 @@ class MatchPyramid(utils.SaveLoad):
 
     def train(self, queries, docs, labels, word_embedding=None,
               text_maxlen=40, normalize_embeddings=True, epochs=10, unk_handle_method='zero',
-              validation_data=None, topk=20, target_mode='ranking', verbose=1, batch_size=100, steps_per_epoch=900):
+              validation_data=None, topk=20, target_mode='ranking', verbose=1, batch_size=100, steps_per_epoch=3):
         """Trains a DRMM_TKS model using specified parameters
 
         This method is called from on model initialization if the data is provided.
@@ -537,7 +537,7 @@ class MatchPyramid(utils.SaveLoad):
     def _translate_user_data(self, data):
         """Translates given user data into an indexed format which the model understands.
         If a model is not in the vocabulary, it is assigned the `unk_word_index` which maps
-        to the unk vector decided by `unk_handle_method`
+        to the unk vector decided by `unk_handle_method`    
 
         Parameters
         ----------
@@ -649,6 +649,7 @@ class MatchPyramid(utils.SaveLoad):
         long_label_list = []
         long_query_list = []
         doc_lens = []
+
         for query, doc, label in zip(queries, docs, labels):
             i = 0
             for d, l in zip(doc, label):
@@ -659,6 +660,7 @@ class MatchPyramid(utils.SaveLoad):
                 long_label_list.append(l)
                 i += 1
             doc_lens.append(len(doc))
+
         indexed_long_query_list = self._translate_user_data(long_query_list)
         indexed_long_doc_list = self._translate_user_data(long_doc_list)
         predictions = self.model.predict(x={'query': indexed_long_query_list, 'doc': indexed_long_doc_list,
