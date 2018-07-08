@@ -73,6 +73,8 @@ def _get_full_batch_iter(pair_list, batch_size, hist_size, calc_hist):
         0 : X2[i] is not relevant to X1[i]
     """
 
+    batch_size=500
+
     X1, X2, y = [], [], []
     while True:
         for i, (query, pos_doc, neg_doc) in enumerate(pair_list):
@@ -440,7 +442,7 @@ class DRMM(utils.SaveLoad):
 
     def train(self, queries, docs, labels, batch_size, word_embedding=None,
               text_maxlen=200, normalize_embeddings=True, epochs=10, unk_handle_method='zero', hist_size=60,
-              validation_data=None, target_mode='ranking', verbose=1, steps_per_epoch=281):
+              validation_data=None, target_mode='ranking', verbose=1, steps_per_epoch=900):
         """Trains a DRMM_TKS model using specified parameters
 
         This method is called from on model initialization if the data is provided.
@@ -587,6 +589,69 @@ class DRMM(utils.SaveLoad):
         )
         return np.array(translated_data)
 
+    def _translate_user_data_hist(self, q_data, d_data):
+        """Translates given user data into an indexed format which the model understands.
+        If a model is not in the vocabulary, it is assigned the `unk_word_index` which maps
+        to the unk vector decided by `unk_handle_method`
+
+        Parameters
+        ----------
+        data : list of list of string words
+            The data to be tranlsated
+
+        Examples
+        --------
+        >>> from gensim.test.utils import datapath
+        >>> model = DRMM_TKS.load(datapath('drmm_tks'))
+        >>>
+        >>> queries = ["When was World War 1 fought ?".split(), "When was Gandhi born ?".split()]
+        >>> print(model._translate_user_data(queries))
+        [[31  1 23 31  4  5  6 30 30 30]
+         [31  1 31  8  6 30 30 30 30 30]]
+        """
+        translated_data = []
+        n_skipped_words = 0
+
+        for q_sentence, d_sentence in zip(q_data, d_data):
+            q_translated_sentence = []
+
+            for word in q_sentence:
+                if word in self.word2index:
+                    q_translated_sentence.append(self.word2index[word])
+                else:
+                    # If the key isn't there give it the zero word index
+                    q_translated_sentence.append(self.unk_word_index)
+                    n_skipped_words += 1
+
+            d_translated_sentence = []
+            for word in d_sentence:
+                if word in self.word2index:
+                    d_translated_sentence.append(self.word2index[word])
+                else:
+                    # If the key isn't there give it the zero word index
+                    d_translated_sentence.append(self.unk_word_index)
+                    n_skipped_words += 1
+
+            if len(q_translated_sentence) > self.text_maxlen:
+                q_translated_sentence = q_translated_sentence[:self.text_maxlen]
+            if len(d_translated_sentence) > self.text_maxlen:
+                d_translated_sentence = d_translated_sentence[:self.text_maxlen]
+
+            q_translated_sentence = q_translated_sentence + (self.text_maxlen - len(q_translated_sentence)) * [self.pad_word_index]
+            d_translated_sentence = d_translated_sentence + (self.text_maxlen - len(d_translated_sentence)) * [self.pad_word_index]
+
+            translated_data.append(self.calc_hist(q_translated_sentence, d_translated_sentence))
+                # logger.info(
+                #     "text_maxlen: %d isn't big enough. Error at sentence of length %d."
+                #     "Sentence is %s", self.text_maxlen, len(sentence), str(sentence)
+                # )
+            # translated_data.append(np.array(translated_sentence))
+
+        logger.info(
+            "Found %d unknown words. Set them to unknown word index : %d", n_skipped_words, self.unk_word_index
+        )
+        return np.array(translated_data)
+
     def predict(self, queries, docs):
         """Predcits the similarity between a query-document pair
         based on the trained DRMM TKS model
@@ -652,15 +717,13 @@ class DRMM(utils.SaveLoad):
         long_query_list = []
         doc_lens = []
         for query, doc, label in zip(queries, docs, labels):
-            i = 0
             for d, l in zip(doc, label):
                 long_query_list.append(query)
                 long_doc_list.append(d)
                 long_label_list.append(l)
-                i += 1
             doc_lens.append(len(doc))
         indexed_long_query_list = self._translate_user_data(long_query_list)
-        indexed_long_doc_list = self._translate_user_data(long_doc_list)
+        indexed_long_doc_list = self._translate_user_data_hist(long_query_list, long_doc_list)
         predictions = self.model.predict(x={'query': indexed_long_query_list, 'doc': indexed_long_doc_list})
         Y_pred = []
         Y_true = []

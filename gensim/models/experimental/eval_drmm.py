@@ -99,7 +99,7 @@ drmm_tks_model = DRMM(
                     hist_size=60, validation_data=None, text_maxlen=50
                 )
 
-drmm_tks_model.save('mera_drmm_')
+# drmm_tks_model.save('mera_drmm_')
 
 print('Test set results')
 drmm_tks_model.evaluate(q_test_iterable, d_test_iterable, l_test_iterable)
