@@ -442,7 +442,7 @@ class DRMM(utils.SaveLoad):
 
     def train(self, queries, docs, labels, batch_size, word_embedding=None,
               text_maxlen=200, normalize_embeddings=True, epochs=10, unk_handle_method='zero', hist_size=60,
-              validation_data=None, target_mode='ranking', verbose=1, steps_per_epoch=900):
+              validation_data=None, target_mode='ranking', verbose=1, steps_per_epoch=10):
         """Trains a DRMM_TKS model using specified parameters
 
         This method is called from on model initialization if the data is provided.
@@ -824,12 +824,12 @@ class DRMM(utils.SaveLoad):
         self.initializer_gate = keras.initializers.RandomUniform(minval=-0.01, maxval=0.01, seed=11)
         self.dropout_rate = dropout_rate
 
-        # def tensor_product(x):
-        #     a = x[0]
-        #     b = x[1]
-        #     y = K.batch_dot(a, b, axis=1)
-        #     y = K.einsum('ijk, ikl->ijl', a, b)
-        #     return y
+        def tensor_product(x):
+            a = x[0]
+            b = x[1]
+            y = K.batch_dot(a, b, axis=1)
+            y = K.einsum('ijk, ikl->ijl', a, b)
+            return y
 
         query = Input(name='query', shape=(self.text_maxlen,))
         doc = Input(name='doc', shape=(self.text_maxlen, self.hist_size))
