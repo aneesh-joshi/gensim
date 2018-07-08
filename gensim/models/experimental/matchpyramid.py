@@ -566,7 +566,7 @@ class MatchPyramid(utils.SaveLoad):
                     translated_sentence.append(self.unk_word_index)
                     n_skipped_words += 1
             if len(sentence) > self.text_maxlen:
-                indexed_sent = indexed_sent[:self.text_maxlen]
+                sentence = sentence[:self.text_maxlen]
             #raise ValueError(
              #   "text_maxlen: %d isn't big enough. Error at sentence of length %d."
               #  "Sentence is %s" % (self.text_maxlen, len(sentence), sentence)
