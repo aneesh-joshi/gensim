@@ -95,8 +95,8 @@ kv_model = api.load('glove-wiki-gigaword-50')
 
 # Train the model
 drmm_tks_model = DRMM(
-                    queries=q_iterable, docs=d_iterable, labels=l_iterable, word_embedding=kv_model, epochs=20,
-                    hist_size=60, validation_data=None, text_maxlen=100
+                    queries=q_iterable, docs=d_iterable, labels=l_iterable, word_embedding=kv_model, epochs=1,
+                    hist_size=60, validation_data=None, text_maxlen=50
                 )
 
 drmm_tks_model.save('mera_drmm_')
