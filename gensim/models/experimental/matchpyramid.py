@@ -433,7 +433,7 @@ class MatchPyramid(utils.SaveLoad):
 
     def train(self, queries, docs, labels, word_embedding=None,
               text_maxlen=40, normalize_embeddings=True, epochs=10, unk_handle_method='zero',
-              validation_data=None, topk=20, target_mode='ranking', verbose=1, batch_size=100, steps_per_epoch=2):
+              validation_data=None, topk=20, target_mode='ranking', verbose=1, batch_size=100, steps_per_epoch=900):
         """Trains a DRMM_TKS model using specified parameters
 
         This method is called from on model initialization if the data is provided.
