@@ -574,8 +574,9 @@ class MatchPyramid(utils.SaveLoad):
               #  "Sentence is %s" % (self.text_maxlen, len(sentence), sentence)
             #)
             translated_sentence = translated_sentence + (self.text_maxlen - len(sentence)) * [self.pad_word_index]
-            print(np.array(translated_sentence))
-            print(np.array(translated_sentence).shape)
+            if str(np.array(translated_sentence).shape) != '(70,)'
+                print(np.array(translated_sentence))
+                print(np.array(translated_sentence).shape)
             translated_data.append(np.array(translated_sentence))
 
         logger.info(
