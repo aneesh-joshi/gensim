@@ -433,7 +433,7 @@ class MatchPyramid(utils.SaveLoad):
 
     def train(self, queries, docs, labels, word_embedding=None,
               text_maxlen=40, normalize_embeddings=True, epochs=10, unk_handle_method='zero',
-              validation_data=None, topk=20, target_mode='ranking', verbose=1, batch_size=100, steps_per_epoch=900):
+              validation_data=None, topk=20, target_mode='ranking', verbose=1, batch_size=100, steps_per_epoch=2):
         """Trains a DRMM_TKS model using specified parameters
 
         This method is called from on model initialization if the data is provided.
@@ -556,6 +556,7 @@ class MatchPyramid(utils.SaveLoad):
         """
         translated_data = []
         n_skipped_words = 0
+
         for sentence in data:
             translated_sentence = []
             for word in sentence:
@@ -565,19 +566,21 @@ class MatchPyramid(utils.SaveLoad):
                     # If the key isn't there give it the zero word index
                     translated_sentence.append(self.unk_word_index)
                     n_skipped_words += 1
+
             if len(sentence) > self.text_maxlen:
                 sentence = sentence[:self.text_maxlen]
             #raise ValueError(
              #   "text_maxlen: %d isn't big enough. Error at sentence of length %d."
               #  "Sentence is %s" % (self.text_maxlen, len(sentence), sentence)
             #)
-            translated_sentence = translated_sentence + \
-                (self.text_maxlen - len(sentence)) * [self.pad_word_index]
+            translated_sentence = translated_sentence + (self.text_maxlen - len(sentence)) * [self.pad_word_index]
             translated_data.append(np.array(translated_sentence))
 
         logger.info(
             "Found %d unknown words. Set them to unknown word index : %d", n_skipped_words, self.unk_word_index
         )
+        print(np.array(translated_data))
+        print(np.array(translated_data).shape)
         return np.array(translated_data)
 
     def predict(self, queries, docs):
@@ -644,22 +647,22 @@ class MatchPyramid(utils.SaveLoad):
         labels : list of list of int
             The relevance of the document to the query. 1 = relevant, 0 = not relevant
         """
-        long_query_len = []
-        long_doc_len = []
-        long_doc_list = []
-        long_label_list = []
         long_query_list = []
+        long_query_len = []
+
+        long_doc_list = []
+        long_doc_len = []
+
+        long_label_list = []
         doc_lens = []
 
         for query, doc, label in zip(queries, docs, labels):
-            i = 0
             for d, l in zip(doc, label):
                 long_query_list.append(query)
                 long_query_len.append(len(query))
                 long_doc_list.append(d)
                 long_doc_len.append(len(d))
                 long_label_list.append(l)
-                i += 1
             doc_lens.append(len(doc))
 
         indexed_long_query_list = self._translate_user_data(long_query_list)
