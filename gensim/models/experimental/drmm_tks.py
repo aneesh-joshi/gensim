@@ -622,7 +622,7 @@ class DRMM_TKS(utils.SaveLoad):
         )
         return np.array(translated_data)
 
-    def predict(self, queries, docs):
+    def predict(self, queries, docs, silent=True):
         """Predcits the similarity between a query-document pair
         based on the trained DRMM TKS model
 
@@ -663,9 +663,10 @@ class DRMM_TKS(utils.SaveLoad):
 
         predictions = self.model.predict(x={'query': indexed_long_query_list, 'doc': indexed_long_doc_list})
 
-        logger.info("Predictions in the format query, doc, similarity")
-        for i, (q, d) in enumerate(zip(long_query_list, long_doc_list)):
-            logger.info("%s\t%s\t%s", str(q), str(d), str(predictions[i][0]))
+        if not silent:
+            logger.info("Predictions in the format query, doc, similarity")
+            for i, (q, d) in enumerate(zip(long_query_list, long_doc_list)):
+                logger.info("%s\t%s\t%s", str(q), str(d), str(predictions[i][0]))
 
         return predictions
 
@@ -762,8 +763,7 @@ class DRMM_TKS(utils.SaveLoad):
         """
         fname = args[0]
         gensim_model = super(DRMM_TKS, cls).load(*args, **kwargs)
-        keras_model = load_model(
-            fname + '.keras', custom_objects={'TopKLayer': TopKLayer})
+        keras_model = load_model(fname + '.keras', custom_objects={'TopKLayer': TopKLayer, 'rank_hinge_loss': rank_hinge_loss})
         gensim_model.model = keras_model
         gensim_model._get_pair_list = _get_pair_list
         gensim_model._get_full_batch_iter = _get_full_batch_iter

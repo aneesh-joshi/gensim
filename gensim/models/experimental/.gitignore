@@ -1,0 +1,5 @@
+#.gitignore
+*.npy
+*.keras
+Wiki*
+new_hop*
