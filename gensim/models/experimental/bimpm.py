@@ -96,7 +96,7 @@ def _get_full_batch_iter(pair_list, batch_size, text_maxlen):
             y.append(0)
 
             if i % batch_size == 0 and i != 0:
-                yield ({'query': np.array(X1), 'doc': np.array(X2), 'query_len': np.array(X1_len), 'doc_len': np.array(doc_len)}, np.array(y))
+                yield ({'query': np.array(X1), 'doc': np.array(X2), 'query_len': np.array(X1_len), 'doc_len': np.array(X2_len)}, np.array(y))
                 X1, X2, X1_len, X2_len, y = [], [], [], [], []
 
 def _get_pair_list(queries, docs, labels, _make_indexed, is_iterable):
