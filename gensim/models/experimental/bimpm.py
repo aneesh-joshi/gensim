@@ -42,7 +42,7 @@ try:
     from keras.models import load_model
     from keras.losses import hinge
     from keras.models import Model
-    from keras.layers import Input, Embedding, Dot, Dense, Reshape, Dropout, Conv2D, Flatten
+    from keras.layers import Input, Embedding, Dot, Dense, Reshape, Dropout, Conv2D, Flatten, Concatenate, Highway
     KERAS_AVAILABLE = True
 except ImportError:
     KERAS_AVAILABLE = False
