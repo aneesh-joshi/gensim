@@ -5,6 +5,7 @@ import gensim.downloader as api
 from gensim.utils import simple_preprocess
 import numpy as np
 from drmm_tks import DRMM_TKS
+from matchpyramid import MatchPyramid
 import argparse
 
 """This script will save the TREC format of the predicions of a word2vec model and a drmm tks model
@@ -264,16 +265,35 @@ def dtks_similarity_fn(q, d):
     """
     return dtks_model.predict([q], [[d]])[0][0]
 
+def mp_similarity_fn(q, d):
+    """Similarity Function for DRMM TKS
+
+    Parameters
+    ----------
+    query : list of str
+    doc : list of str
+
+    Returns
+    -------
+    similarity_score : float
+    """
+    return mp_model.predict([q], [[d]])[0][0]
+
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Save the TREC format results')
 
     parser.add_argument('--wikiqa_path', help='Path to WikiQA .tsv file')
     parser.add_argument('--model_path', help='Path to DRMM_TKS or other such model')
+    parser.add_argument('--model_type')
+    parser.add_argument('--do_w2v', default=False)
 
     args = parser.parse_args()
     wikiqa_path = args.wikiqa_path
     model_path = args.model_path
+    model_type = args.model_type
+    do_w2v = args.do_w2v
 
     queries, doc_group, label_group, query_ids, doc_id_group = MyWikiIterable(wikiqa_path).get_stuff()
 
@@ -286,17 +306,22 @@ if __name__ == '__main__':
     # Get the qrels, which will be the same for every model
     save_qrels('qrels')
 
-    # Get data KeyedVector model
-    temp_kv_model = api.load('glove-wiki-gigaword-300')
-    dim_size = temp_kv_model.vector_size
-    kv_model = temp_kv_model.wv
-    del temp_kv_model
+    if do_w2v:
+        # Get data KeyedVector model
+        temp_kv_model = api.load('glove-wiki-gigaword-300')
+        dim_size = temp_kv_model.vector_size
+        kv_model = temp_kv_model.wv
+        del temp_kv_model
 
-    # Get the prediction in the correct format for word2vec
-    save_model_pred('pred_w2v_300', w2v_similarity_fn)
+        # Get the prediction in the correct format for word2vec
+        save_model_pred('pred_w2v_300', w2v_similarity_fn)
 
-    # Evaluate DRMM_TKS
-    del kv_model
-    dtks_model = DRMM_TKS.load(model_path)
+        # Evaluate DRMM_TKS
+        del kv_model
 
-    save_model_pred('pred_dtks', dtks_similarity_fn)
+    if model_type == 'dtks':
+        dtks_model = DRMM_TKS.load(model_path)
+        save_model_pred('pred_dtks' + str(model_path), dtks_similarity_fn)
+    else if model_type == 'mp':
+        mp_model = MatchPyramid.load(model_path)
+
