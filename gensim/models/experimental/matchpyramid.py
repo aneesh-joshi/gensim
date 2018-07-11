@@ -740,7 +740,7 @@ class MatchPyramid(utils.SaveLoad):
         >>> model = DRMM_TKS.load(model_file_path)
         """
         fname = args[0]
-        gensim_model = super(DRMM_TKS, cls).load(*args, **kwargs)
+        gensim_model = super(MatchPyramid, cls).load(*args, **kwargs)
         keras_model = load_model(
             fname + '.keras', custom_objects={'rank_hinge_loss': rank_hinge_loss, 'DynamicMaxPooling': DynamicMaxPooling})
         gensim_model.model = keras_model
