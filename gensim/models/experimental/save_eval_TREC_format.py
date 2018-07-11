@@ -288,12 +288,14 @@ if __name__ == '__main__':
     parser.add_argument('--model_path', help='Path to DRMM_TKS or other such model')
     parser.add_argument('--model_type')
     parser.add_argument('--do_w2v', default=False)
+    parser.add_argument('--w2v_dim')
 
     args = parser.parse_args()
     wikiqa_path = args.wikiqa_path
     model_path = args.model_path
     model_type = args.model_type
     do_w2v = args.do_w2v
+    w2v_dim = args.w2v_dim
 
     queries, doc_group, label_group, query_ids, doc_id_group = MyWikiIterable(wikiqa_path).get_stuff()
 
@@ -308,13 +310,13 @@ if __name__ == '__main__':
 
     if do_w2v:
         # Get data KeyedVector model
-        temp_kv_model = api.load('glove-wiki-gigaword-300')
+        temp_kv_model = api.load('glove-wiki-gigaword-' + str(w2v_dim))
         dim_size = temp_kv_model.vector_size
         kv_model = temp_kv_model.wv
         del temp_kv_model
 
         # Get the prediction in the correct format for word2vec
-        save_model_pred('pred_w2v_300', w2v_similarity_fn)
+        save_model_pred('pred_w2v_' + str(w2v_dim), w2v_similarity_fn)
 
         # Evaluate DRMM_TKS
         del kv_model
