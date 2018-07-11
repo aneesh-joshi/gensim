@@ -12,7 +12,7 @@ import argparse
 
 Usage
 -----
-$ python save_eval_TREC_format.py --wikiqa_path experimental_data/WikiQACorpus/WikiQA-train.tsv --model_path path/to/model
+$ python save_eval_TREC_format.py --wikiqa_path experimental_data/WikiQACorpus/WikiQA-test.tsv --model_path path/to/model
 
 Please refer to http://www.rafaelglater.com/en/post/learn-how-to-use-trec_eval-to-evaluate-your-information-retrieval-system
 to get a complete understanding of trec
@@ -322,6 +322,6 @@ if __name__ == '__main__':
     if model_type == 'dtks':
         dtks_model = DRMM_TKS.load(model_path)
         save_model_pred('pred_dtks' + str(model_path), dtks_similarity_fn)
-    else if model_type == 'mp':
+    elif model_type == 'mp':
         mp_model = MatchPyramid.load(model_path)
 
