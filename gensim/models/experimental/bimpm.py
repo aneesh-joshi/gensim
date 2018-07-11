@@ -791,7 +791,7 @@ class BiMPM(utils.SaveLoad):
         q_mask = SequenceMask(self.text_maxlen)(query_len)
         d_mask = SequenceMask(self.text_maxlen)(doc_len)
 
-        embedding = Embedding(self.embedding_matrix.shape[0], self.embedding_matrix.shape[0],
+        embedding = Embedding(self.embedding_matrix.shape[0], self.embedding_matrix.shape[1],
                         weights=[self.embedding_matrix], trainable=embed_trainable)
 
         q_embed = embedding(query)
