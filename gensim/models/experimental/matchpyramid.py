@@ -25,7 +25,7 @@ from numpy import random as np_random
 from gensim.models import KeyedVectors
 from collections import Counter
 from custom_losses import rank_hinge_loss
-from custom_layers import TopKLayer, DynamicMaxPooling
+from custom_layers import DynamicMaxPooling
 from custom_callbacks import ValidationCallback
 from evaluation_metrics import mapk, mean_ndcg
 from sklearn.preprocessing import normalize
@@ -742,7 +742,7 @@ class MatchPyramid(utils.SaveLoad):
         fname = args[0]
         gensim_model = super(DRMM_TKS, cls).load(*args, **kwargs)
         keras_model = load_model(
-            fname + '.keras', custom_objects={'TopKLayer': TopKLayer, 'rank_hinge_loss': rank_hinge_loss})
+            fname + '.keras', custom_objects={'rank_hinge_loss': rank_hinge_loss, 'DynamicMaxPooling': DynamicMaxPooling})
         gensim_model.model = keras_model
         gensim_model._get_pair_list = _get_pair_list
         gensim_model._get_full_batch_iter = _get_full_batch_iter

@@ -102,9 +102,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    epochs = args.epochs
+    epochs = int(args.epochs)
     w2v_dim = args.w2v_dim
-    text_maxlen = args.w2v_dim
+    text_maxlen = int(args.text_maxlen)
     model_save_name = args.model_save_name
 
     kv_model = api.load('glove-wiki-gigaword-' + str(w2v_dim))
