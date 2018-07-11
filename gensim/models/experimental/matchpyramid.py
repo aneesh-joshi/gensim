@@ -583,8 +583,8 @@ class MatchPyramid(utils.SaveLoad):
         )
 
         translated_data = np.array(translated_data)
-        print(translated_data)
-        print(translated_data.shape)
+        # print(translated_data)
+        # print(translated_data.shape)
         # translated_data = translated_data.reshape((translated_data.shape[0], self.text_maxlen))
 
         return translated_data
