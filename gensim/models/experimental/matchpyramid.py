@@ -714,7 +714,7 @@ class MatchPyramid(utils.SaveLoad):
                             'ignore', ['model', '_get_pair_list', '_get_full_batch_iter',
                                         'queries', 'docs', 'labels', 'pair_list'])
         kwargs['fname_or_handle'] = fname
-        super(DRMM_TKS, self).save(*args, **kwargs)
+        super(MatchPyramid, self).save(*args, **kwargs)
         self.model.save(fname + ".keras")
 
     @classmethod
