@@ -6,6 +6,9 @@ import re
 from bimpm import BiMPM
 import gensim.downloader as api
 import argparse
+"""
+python eval_bimpm.py --epochs 1 --w2v_dim 50 --model_save_name test_bimpm --text_maxlen 40
+"""
 
 class MyWikiIterable:
     def __init__(self, iter_type, fpath):
