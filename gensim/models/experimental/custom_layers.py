@@ -88,7 +88,7 @@ class DynamicMaxPooling(Layer):
             'psize1': self.psize1,
             'psize2': self.psize2
         }
-        base_config = super(DynamicPooling, self).get_config()
+        base_config = super(DynamicMaxPooling, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
     @staticmethod
