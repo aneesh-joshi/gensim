@@ -325,14 +325,14 @@ class BiMPM(utils.SaveLoad):
         vocab_offset = self.vocab_size
         extra_embeddings = []
         # Take the words in the embedding file which aren't there int the train vocab
-        for word in list(kv_model.vocab):
-            if word not in self.word2index:
-                # Add the new word's vector and index it
-                extra_embeddings.append(kv_model[word])
-                # We also need to keep an additional indexing of these
-                # words
-                self.word2index[word] = vocab_offset
-                vocab_offset += 1
+        # for word in list(kv_model.vocab):
+        #     if word not in self.word2index:
+        #         # Add the new word's vector and index it
+        #         extra_embeddings.append(kv_model[word])
+        #         # We also need to keep an additional indexing of these
+        #         # words
+        #         self.word2index[word] = vocab_offset
+        #         vocab_offset += 1
 
         # Set the pad and unk word to second last and last index
         self.pad_word_index = vocab_offset
