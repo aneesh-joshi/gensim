@@ -115,7 +115,7 @@ if __name__ == '__main__':
     # Train the model
     bimpm_model = BiMPM(
                     queries=q_iterable, docs=d_iterable, labels=l_iterable, word_embedding=kv_model, epochs=epochs, 
-                    text_maxlen=text_maxlen #validation_data=[q_val_iterable, d_val_iterable, l_val_iterable],
+                    text_maxlen=text_maxlen, validation_data=[q_val_iterable, d_val_iterable, l_val_iterable]
                 )
 
     print('Test set results')

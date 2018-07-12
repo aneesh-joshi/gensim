@@ -13,7 +13,7 @@ import argparse
 
 Usage
 -----
-$ python save_eval_TREC_format.py --wikiqa_path experimental_data/WikiQACorpus/WikiQA-test.tsv --model_path path/to/model
+$ python save_eval_TREC_format.py --wikiqa_path experimental_data/WikiQACorpus/WikiQA-test.tsv --model_path path/to/model --model_type bimpmp
 
 Please refer to http://www.rafaelglater.com/en/post/learn-how-to-use-trec_eval-to-evaluate-your-information-retrieval-system
 to get a complete understanding of trec
@@ -305,6 +305,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_type')
     parser.add_argument('--do_w2v', default=False)
     parser.add_argument('--w2v_dim')
+    parser.add_argument('--use_ft')
 
     args = parser.parse_args()
     wikiqa_path = args.wikiqa_path
@@ -312,6 +313,7 @@ if __name__ == '__main__':
     model_type = args.model_type
     do_w2v = args.do_w2v
     w2v_dim = args.w2v_dim
+    use_ft = args.use_ft
 
     queries, doc_group, label_group, query_ids, doc_id_group = MyWikiIterable(wikiqa_path).get_stuff()
 
@@ -326,7 +328,10 @@ if __name__ == '__main__':
 
     if do_w2v:
         # Get data KeyedVector model
-        temp_kv_model = api.load('glove-wiki-gigaword-' + str(w2v_dim))
+        if use_ft:
+           temp_kv_model = api.load('fasttext-wiki-news-subwords-300')
+        else:
+           temp_kv_model = api.load('glove-wiki-gigaword-' + str(w2v_dim))
         dim_size = temp_kv_model.vector_size
         kv_model = temp_kv_model.wv
         del temp_kv_model

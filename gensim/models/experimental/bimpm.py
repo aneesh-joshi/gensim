@@ -25,7 +25,7 @@ from numpy import random as np_random
 from gensim.models import KeyedVectors
 from collections import Counter
 from custom_losses import rank_hinge_loss
-from custom_callbacks import ValidationCallback
+from custom_callbacks import MPValidationCallback
 from evaluation_metrics import mapk, mean_ndcg
 from sklearn.preprocessing import normalize
 from gensim import utils
@@ -325,14 +325,14 @@ class BiMPM(utils.SaveLoad):
         vocab_offset = self.vocab_size
         extra_embeddings = []
         # Take the words in the embedding file which aren't there int the train vocab
-        # for word in list(kv_model.vocab):
-        #     if word not in self.word2index:
-        #         # Add the new word's vector and index it
-        #         extra_embeddings.append(kv_model[word])
-        #         # We also need to keep an additional indexing of these
-        #         # words
-        #         self.word2index[word] = vocab_offset
-        #         vocab_offset += 1
+        for word in list(kv_model.vocab):
+            if word not in self.word2index:
+                # Add the new word's vector and index it
+                extra_embeddings.append(kv_model[word])
+                # We also need to keep an additional indexing of these
+                # words
+                self.word2index[word] = vocab_offset
+                vocab_offset += 1
 
         # Set the pad and unk word to second last and last index
         self.pad_word_index = vocab_offset
@@ -435,7 +435,7 @@ class BiMPM(utils.SaveLoad):
 
     def train(self, queries, docs, labels, word_embedding=None,
               text_maxlen=40, normalize_embeddings=True, epochs=10, unk_handle_method='zero',
-              validation_data=None, topk=20, target_mode='ranking', verbose=1, batch_size=100, steps_per_epoch=900):
+              validation_data=None, topk=20, target_mode='ranking', verbose=1, batch_size=100, steps_per_epoch=200):
         """Trains a DRMM_TKS model using specified parameters
 
         This method is called from on model initialization if the data is provided.
@@ -506,12 +506,16 @@ class BiMPM(utils.SaveLoad):
             long_label_list = []
             long_query_list = []
             doc_lens = []
+            long_doc_len = []
+            long_query_len = []
 
             for query, doc, label in zip(test_queries, test_docs, test_labels):
                 i = 0
                 for d, l in zip(doc, label):
                     long_query_list.append(query)
+                    long_query_len.append(len(query))
                     long_doc_list.append(d)
+                    long_doc_len.append(len(d))
                     long_label_list.append(l)
                     i += 1
                 doc_lens.append(len(doc))
@@ -519,9 +523,9 @@ class BiMPM(utils.SaveLoad):
             indexed_long_query_list = self._translate_user_data(long_query_list)
             indexed_long_doc_list = self._translate_user_data(long_doc_list)
 
-            val_callback = ValidationCallback(
+            val_callback  = MPValidationCallback(
                                 {"X1": indexed_long_query_list, "X2": indexed_long_doc_list, "doc_lengths": doc_lens,
-                                "y": long_label_list}
+                                "y": long_label_list, 'query_len': np.array(long_query_len), 'doc_len' : np.array(long_doc_len)}
                             )
             val_callback = [val_callback]  # since `model.fit` requires a list
 
