@@ -5,6 +5,7 @@ import gensim.downloader as api
 from gensim.utils import simple_preprocess
 import numpy as np
 from drmm_tks import DRMM_TKS
+from bimpm import BiMPM
 from matchpyramid import MatchPyramid
 import argparse
 
@@ -279,6 +280,21 @@ def mp_similarity_fn(q, d):
     """
     return mp_model.predict([q], [[d]])[0][0]
 
+def bimpm_similarity_fn(q, d):
+    """Similarity Function for DRMM TKS
+
+    Parameters
+    ----------
+    query : list of str
+    doc : list of str
+
+    Returns
+    -------
+    similarity_score : float
+    """
+    return bimpm_model.predict([q], [[d]])[0][0]
+
+
 
 if __name__ == '__main__':
 
@@ -328,5 +344,6 @@ if __name__ == '__main__':
         mp_model = MatchPyramid.load(model_path)
         save_model_pred('pred_mp_' + str(model_path), mp_similarity_fn)
     elif model_type == 'bimpm':
-        
+        bimpm_model = BiMPM.load(model_path)
+        save_model_pred('pred_bimpm_' + str(model_path), bimpm_similarity_fn)       
 

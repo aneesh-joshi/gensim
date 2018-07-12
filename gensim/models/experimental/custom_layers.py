@@ -195,6 +195,13 @@ class SequenceMask(Layer):
 
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.text_maxlen)
+    
+    def get_config(self):
+        config = {
+            'text_maxlen': self.text_maxlen
+        }
+        base_config = super(SequenceMask, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
 
 class MultiPerspectiveMatch(Layer):
     """ Multi-Perspective Cosine Attention
@@ -209,6 +216,17 @@ class MultiPerspectiveMatch(Layer):
         self.with_attentive_match = with_attentive_match
         self.with_max_attentive_match = with_max_attentive_match
         self.output_size = 0
+
+    def get_config(self):
+        config = {
+            'channel' : self.channel,
+            'with_full_match' : self.with_full_match,
+            'with_maxpool_match' : self.with_maxpool_match,
+            'with_attentive_match' : self.with_attentive_match,
+            'with_max_attentive_match' : self.with_max_attentive_match
+        }
+        base_config = super(MultiPerspectiveMatch, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
 
     def build(self, input_shape):
         if not isinstance(input_shape, list) or len(input_shape) != 6:
