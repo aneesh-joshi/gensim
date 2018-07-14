@@ -57,6 +57,15 @@ class DynamicMaxPooling(Layer):
         self.msize2 = input_shape_one[2]
         super(DynamicMaxPooling, self).build(input_shape)  
 
+    def get_config(self):
+        config = {
+            'psize1': self.psize1,
+            'psize2': self.psize2
+        }
+        base_config = super(DynamicMaxPooling, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+
     def call(self, data):
         x, self.dpool_index = data
         x_expand = K.tf.gather_nd(x, self.dpool_index)

@@ -96,8 +96,10 @@ kv_model = api.load('glove-wiki-gigaword-300')
 
 # Train the model
 mp_model = MatchPyramid(
-                    queries=q_iterable, docs=d_iterable, labels=l_iterable, word_embedding=kv_model, epochs=2, text_maxlen=100 #validation_data=[q_val_iterable, d_val_iterable, l_val_iterable],
+                    queries=q_iterable, docs=d_iterable, labels=l_iterable, word_embedding=kv_model, epochs=6, text_maxlen=200 #validation_data=[q_val_iterable, d_val_iterable, l_val_iterable],
                 )
 
 print('Test set results')
 mp_model.evaluate(q_test_iterable, d_test_iterable, l_test_iterable)
+
+mp_model.save('my_mp_mpdel')

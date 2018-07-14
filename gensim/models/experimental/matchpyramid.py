@@ -715,7 +715,7 @@ class MatchPyramid(utils.SaveLoad):
                             'ignore', ['model', '_get_pair_list', '_get_full_batch_iter',
                                         'queries', 'docs', 'labels', 'pair_list'])
         kwargs['fname_or_handle'] = fname
-        super(DRMM_TKS, self).save(*args, **kwargs)
+        super(MatchPyramid, self).save(*args, **kwargs)
         self.model.save(fname + ".keras")
 
     @classmethod
@@ -741,9 +741,9 @@ class MatchPyramid(utils.SaveLoad):
         >>> model = DRMM_TKS.load(model_file_path)
         """
         fname = args[0]
-        gensim_model = super(DRMM_TKS, cls).load(*args, **kwargs)
+        gensim_model = super(MatchPyramid, cls).load(*args, **kwargs)
         keras_model = load_model(
-            fname + '.keras', custom_objects={'TopKLayer': TopKLayer})
+            fname + '.keras', custom_objects={'rank_hinge_loss': rank_hinge_loss, 'DynamicMaxPooling': DynamicMaxPooling})
         gensim_model.model = keras_model
         gensim_model._get_pair_list = _get_pair_list
         gensim_model._get_full_batch_iter = _get_full_batch_iter
