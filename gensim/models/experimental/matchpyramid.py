@@ -31,6 +31,7 @@ from evaluation_metrics import mapk, mean_ndcg
 from sklearn.preprocessing import normalize
 from gensim import utils
 from collections import Iterable
+from keras.utils.np_utils import to_categorical
 
 try:
     import keras.backend as K
@@ -262,9 +263,15 @@ class MatchPyramid(utils.SaveLoad):
         # get all the vocab words
         for q in self.queries:
             self.word_counter.update(q)
-        for doc in self.docs:
-            for d in doc:
-                self.word_counter.update(d)
+
+        if self.target_mode == 'classification':
+            for doc in self.docs:
+                self.word_counter.update(doc)
+        else:
+            for doc in self.docs:
+                for d in doc:
+                    self.word_counter.update(d)
+
         for i, word in enumerate(self.word_counter.keys()):
             self.word2index[word] = i
             self.index2word[i] = word
@@ -431,6 +438,23 @@ class MatchPyramid(utils.SaveLoad):
         print('There are pairs in pair_list', np.array(X1).shape, np.array(X2).shape, np.array(y).shape)
         return np.array(X1), np.array(X2), np.array(y)
 
+    def _get_classification_batch(self, batch_size):
+        """Yields batches of data to train for classification tasks"""
+        x1_batch, x2_batch, dupl_batch = [], [], []
+        x1_len, x2_len = [], []
+        for x1, x2, d in (self.queries, self.docs, self.labels):
+            x1_batch.append(self._make_indexed(x1))
+            x2_batch.append(self._make_indexed(x2))
+            x1_len.append(len(x1))
+            x2_len.append()
+            dupl_batch.append(to_categorical(d))
+
+            if len(x1_batch) % batch_size == 0:
+                yield ({'queries': np.array(x1_batch), 'docs': np.array(x2_batch),
+                    'dpool_index': DynamicMaxPooling.dynamic_pooling_index(x1_len, x2_len, self.text_maxlen, self.text_maxlen)}, np.array(dupl_batch))
+            x1_batch, x2_batch, dupl_batch = [], [], []
+
+
     def train(self, queries, docs, labels, word_embedding=None,
               text_maxlen=40, normalize_embeddings=True, epochs=10, unk_handle_method='zero',
               validation_data=None, topk=20, target_mode='ranking', verbose=1, batch_size=100, steps_per_epoch=900):
@@ -470,11 +494,17 @@ class MatchPyramid(utils.SaveLoad):
             is_iterable = True
             logger.info("Input is an iterable amd will be streamed")
 
+
+
         self.pair_list = self._get_pair_list(self.queries, self.docs, self.labels, self._make_indexed, is_iterable)
         if is_iterable:
-            train_generator = self._get_full_batch_iter(self.pair_list, batch_size, self.text_maxlen)
+            if self.target_mode == 'ranking':
+                train_generator = self._get_full_batch_iter(self.pair_list, batch_size, self.text_maxlen)
+            elif self.target_mode == 'classification':
+                train_generator = self._get_classification_batch(batch_size)
         else:
-            X1_train, X2_train, y_train = self._get_full_batch()
+            raise ValueError()
+            # X1_train, X2_train, y_train = self._get_full_batch()
 
         if self.first_train:
             # The settings below should be set only once
