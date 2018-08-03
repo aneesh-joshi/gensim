@@ -162,7 +162,7 @@ class MatchPyramid(utils.SaveLoad):
 
     def __init__(self, queries=None, docs=None, labels=None, word_embedding=None,
                  text_maxlen=200, normalize_embeddings=True, epochs=10, unk_handle_method='random',
-                 validation_data=None, topk=50, target_mode='ranking', verbose=1):
+                 validation_data=None, topk=50, target_mode='ranking', verbose=1, batch_size=20, steps_per_epoch=100):
         """Initializes the model and trains it
 
         Parameters
@@ -232,6 +232,8 @@ class MatchPyramid(utils.SaveLoad):
         self.verbose = verbose
         self.first_train = True  # Whether the model has been trained before
         self.needs_vocab_build = True
+        self.batch_size = batch_size
+        self.steps_per_epoch = steps_per_epoch
 
         # These functions have been defined outside the class and set as attributes here
         # so that they can be ignored when saving the model to file
@@ -507,7 +509,7 @@ class MatchPyramid(utils.SaveLoad):
             if self.target_mode == 'ranking':
                 train_generator = self._get_full_batch_iter(self.pair_list, batch_size, self.text_maxlen)
             elif self.target_mode == 'classification':
-                train_generator = self._get_classification_batch(batch_size)
+                train_generator = self._get_classification_batch(self.batch_size)
         else:
             raise ValueError()
             # X1_train, X2_train, y_train = self._get_full_batch()
@@ -567,7 +569,7 @@ class MatchPyramid(utils.SaveLoad):
 
         if is_iterable:
             print('Fitting gen')
-            self.model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, callbacks=val_callback,
+            self.model.fit_generator(train_generator, steps_per_epoch=self.steps_per_epoch, callbacks=val_callback,
                                     epochs=self.epochs, shuffle=False, verbose=1)
         else:
             self.model.fit(x={"query": X1_train, "doc": X2_train}, y=y_train, batch_size=5,
@@ -868,7 +870,9 @@ class MatchPyramid(utils.SaveLoad):
         if self.target_mode == 'classification':
             out_ = Dense(2, activation='softmax')(pool1_flat_drop)
         elif self.target_mode in ['regression', 'ranking']:
-            out_ = Dense(1)(pool1_flat_drop)
+            out_ = Dense(200)(pool1_flat_drop)
+            out_ = Dense(64)(out_)
+            out_ = Dense(1)(out_)
 
         model = Model(inputs=[query, doc, dpool_index], outputs=out_)
         return model
