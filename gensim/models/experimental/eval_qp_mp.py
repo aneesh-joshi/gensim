@@ -10,11 +10,17 @@ qqp = api.load('quora-duplicate-questions')
 def preprocess(sent):
 	return re.sub("[^a-zA-Z0-9]", " ", sent.strip().lower()).split()
 
+sent_len = []
+
 q1, q2, duplicate = [], [], []
 for row in qqp:
+	sent_len.append(len(row['question1']))
+	sent_len.append(len(row['question2']))
 	q1.append(preprocess(row['question1']))
 	q2.append(preprocess(row['question2']))
 	duplicate.append(int(row['is_duplicate']))
+
+print(sum(sent_len)/len(sent_len))
 
 print('Number of question pairs', len(q1))
 print('Number of duplicates', sum(duplicate))
@@ -41,8 +47,7 @@ print('Number of duplicates in test', sum(test_duplicate))
 print('%% duplicates', 100.*sum(test_duplicate)/len(test_q1))
 print('-----------------------------------------')
 
-print(test_q1)
+kv_model = api.load('glove-wiki-gigaword-300')
 
-kv_model = api.load('glove-wiki-gigaword-50')
-
-mp_model = MatchPyramid(queries=q1, docs=q2, labels=duplicate, target_mode='classification', word_embedding=kv_model)
+mp_model = MatchPyramid(queries=train_q1, docs=train_q2, labels=train_duplicate, target_mode='classification', word_embedding=kv_model, epochs=20, text_maxlen=80)
+mp_model.evaluate_classification(test_q1, test_q2, test_duplicate)

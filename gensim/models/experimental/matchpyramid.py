@@ -399,7 +399,10 @@ class MatchPyramid(utils.SaveLoad):
 
         indexed_sent = []
         for word in sentence:
-            indexed_sent.append(self.word2index[word])
+            if word in self.word2index:
+                indexed_sent.append(self.word2index[word])
+            else:
+                indexed_sent.append(self.unk_word_index)
 
 
         if len(indexed_sent) > self.text_maxlen:
@@ -440,24 +443,25 @@ class MatchPyramid(utils.SaveLoad):
 
     def _get_classification_batch(self, batch_size):
         """Yields batches of data to train for classification tasks"""
-        x1_batch, x2_batch, dupl_batch = [], [], []
-        x1_len, x2_len = [], []
-        for x1, x2, d in (self.queries, self.docs, self.labels):
-            x1_batch.append(self._make_indexed(x1))
-            x2_batch.append(self._make_indexed(x2))
-            x1_len.append(len(x1))
-            x2_len.append()
-            dupl_batch.append(to_categorical(d))
-
-            if len(x1_batch) % batch_size == 0:
-                yield ({'queries': np.array(x1_batch), 'docs': np.array(x2_batch),
-                    'dpool_index': DynamicMaxPooling.dynamic_pooling_index(x1_len, x2_len, self.text_maxlen, self.text_maxlen)}, np.array(dupl_batch))
+        while True:
             x1_batch, x2_batch, dupl_batch = [], [], []
+            x1_len, x2_len = [], []
+            for x1, x2, d in zip(self.queries, self.docs, self.labels):
+                x1_batch.append(self._make_indexed(x1))
+                x2_batch.append(self._make_indexed(x2))
+                x1_len.append(len(x1))
+                x2_len.append(len(x2))
+                dupl_batch.append(to_categorical(d, 2))
 
+                if len(x1_batch) % batch_size == 0:
+                    yield ({'query': np.array(x1_batch), 'doc': np.array(x2_batch),
+                        'dpool_index': DynamicMaxPooling.dynamic_pooling_index(x1_len, x2_len, self.text_maxlen, self.text_maxlen)}, np.squeeze(np.array(dupl_batch)))
+                    x1_batch, x2_batch, dupl_batch, x1_len, x2_len = [], [], [], [], []
+ 
 
     def train(self, queries, docs, labels, word_embedding=None,
               text_maxlen=40, normalize_embeddings=True, epochs=10, unk_handle_method='zero',
-              validation_data=None, topk=20, target_mode='ranking', verbose=1, batch_size=100, steps_per_epoch=900):
+              validation_data=None, topk=20, target_mode='ranking', verbose=1, batch_size=100, steps_per_epoch=325):
         """Trains a DRMM_TKS model using specified parameters
 
         This method is called from on model initialization if the data is provided.
@@ -489,11 +493,13 @@ class MatchPyramid(utils.SaveLoad):
         if self.needs_vocab_build:
             self.build_vocab(self.queries, self.docs, self.labels, self.word_embedding)
 
+        '''
         is_iterable = False
         if isinstance(self.queries, Iterable) and not isinstance(self.queries, list):
             is_iterable = True
             logger.info("Input is an iterable amd will be streamed")
-
+        '''
+        is_iterable = True
 
 
         self.pair_list = self._get_pair_list(self.queries, self.docs, self.labels, self._make_indexed, is_iterable)
@@ -505,7 +511,7 @@ class MatchPyramid(utils.SaveLoad):
         else:
             raise ValueError()
             # X1_train, X2_train, y_train = self._get_full_batch()
-
+        
         if self.first_train:
             # The settings below should be set only once
             self.model = self._get_keras_model()
@@ -519,6 +525,8 @@ class MatchPyramid(utils.SaveLoad):
             loss = hinge
             loss = 'mse'
             loss = rank_hinge_loss
+            if self.target_mode == 'classification':
+                loss = 'categorical_crossentropy'
             self.model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'])
         else:
             logger.info("Model will be retrained")
@@ -558,8 +566,9 @@ class MatchPyramid(utils.SaveLoad):
             self.first_train = False
 
         if is_iterable:
+            print('Fitting gen')
             self.model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, callbacks=val_callback,
-                                    epochs=self.epochs, shuffle=False)
+                                    epochs=self.epochs, shuffle=False, verbose=1)
         else:
             self.model.fit(x={"query": X1_train, "doc": X2_train}, y=y_train, batch_size=5,
                            verbose=self.verbose, epochs=self.epochs, shuffle=False, callbacks=val_callback)
@@ -670,6 +679,38 @@ class MatchPyramid(utils.SaveLoad):
             logger.info("%s\t%s\t%s", str(q), str(d), str(predictions[i][0]))
 
         return predictions
+  
+    def evaluate_classification(self, X1, X2, D, batch_size=20):
+        batch_size=20
+        x1_batch, x2_batch, dupl_batch = [], [], []
+        test_X, test_Y = [], []
+        x1_len, x2_len = [], []
+        for x1, x2, d in zip(X1, X2, D):
+            x1_batch.append(self._make_indexed(x1))
+            x2_batch.append(self._make_indexed(x2))
+            x1_len.append(len(x1))
+            x2_len.append(len(x2))
+            dupl_batch.append(to_categorical(d, 2))
+
+            if len(x1_batch) % batch_size == 0:
+                test_X.append({'query': np.array(x1_batch), 'doc': np.array(x2_batch),
+                    'dpool_index': DynamicMaxPooling.dynamic_pooling_index(x1_len, x2_len, self.text_maxlen, self.text_maxlen)})
+                test_Y.append(np.squeeze(np.array(dupl_batch)))
+
+                x1_batch, x2_batch, dupl_batch, x1_len, x2_len = [], [], [], [], []
+
+        num_correct = 0
+        num_total = 0
+        for tx, ty in zip(test_X, test_Y):
+            this_pred = self.model.predict(tx)
+            print(this_pred)
+            for pred_val, true_val in zip(this_pred, ty):
+                print(pred_val, true_val)
+                if np.argmax(pred_val) == np.argmax(true_val):
+                    num_correct += 1
+                num_total += 1
+
+        print(num_correct, num_total) 
 
     def evaluate(self, queries, docs, labels):
         """Evaluates the model and provides the results in terms of metrics (MAP, nDCG)
