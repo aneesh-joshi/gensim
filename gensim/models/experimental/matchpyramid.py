@@ -682,6 +682,8 @@ class MatchPyramid(utils.SaveLoad):
   
     def evaluate_classification(self, X1, X2, D, batch_size=20):
         batch_size=20
+        num_correct = 0
+        num_total = 0
         x1_batch, x2_batch, dupl_batch = [], [], []
         test_X, test_Y = [], []
         x1_len, x2_len = [], []
@@ -697,20 +699,19 @@ class MatchPyramid(utils.SaveLoad):
                     'dpool_index': DynamicMaxPooling.dynamic_pooling_index(x1_len, x2_len, self.text_maxlen, self.text_maxlen)})
                 test_Y.append(np.squeeze(np.array(dupl_batch)))
 
+                for tx, ty in zip(test_X, test_Y):
+                    this_pred = self.model.predict(tx)
+                    print(this_pred)
+                    for pred_val, true_val in zip(this_pred, ty):
+                        print(pred_val, true_val)
+                        if np.argmax(pred_val) == np.argmax(true_val):
+                            num_correct += 1
+                        num_total += 1
+
                 x1_batch, x2_batch, dupl_batch, x1_len, x2_len = [], [], [], [], []
+                test_X, test_Y = [], []
 
-        num_correct = 0
-        num_total = 0
-        for tx, ty in zip(test_X, test_Y):
-            this_pred = self.model.predict(tx)
-            print(this_pred)
-            for pred_val, true_val in zip(this_pred, ty):
-                print(pred_val, true_val)
-                if np.argmax(pred_val) == np.argmax(true_val):
-                    num_correct += 1
-                num_total += 1
-
-        print(num_correct, num_total) 
+        print(num_correct, num_total, num_correct/num_total) 
 
     def evaluate(self, queries, docs, labels):
         """Evaluates the model and provides the results in terms of metrics (MAP, nDCG)
